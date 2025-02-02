@@ -81,6 +81,10 @@ def serve_script(author, script_name):
     ip = request.remote_addr
 
     status = "Allowed" if user_agent in ROBLOX_AGENTS else "Blocked"
+    log_message = f"IP: {ip}, User-Agent: {user_agent}, Status: {status}"
+
+    print(log_message)  # Log to the server console
+
     with sqlite3.connect(LOG_DB) as conn:
         c = conn.cursor()
         c.execute("INSERT INTO access_log (ip, user_agent, status) VALUES (?, ?, ?)", (ip, user_agent, status))
