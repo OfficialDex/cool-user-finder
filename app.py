@@ -9,7 +9,7 @@ app = Flask(__name__)
 UPLOAD_FOLDER = "uploads"
 os.makedirs(UPLOAD_FOLDER, exist_ok=True)
 
-cred = credentials.Certificate("firebase_credentials.json")
+cred = credentials.Certificate("database-for-scripts-firebase-adminsdk-fbsvc-65f631f23d.json")
 firebase_admin.initialize_app(cred)
 db = firestore.client()
 
