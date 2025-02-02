@@ -83,7 +83,7 @@ def serve_script(author, script_name):
     status = "Allowed" if user_agent in ROBLOX_AGENTS else "Blocked"
     log_message = f"IP: {ip}, User-Agent: {user_agent}, Status: {status}"
 
-    print(log_message)  # Log to the server console
+    print(log_message)
 
     with sqlite3.connect(LOG_DB) as conn:
         c = conn.cursor()
@@ -143,6 +143,29 @@ def delete_script():
         conn.commit()
 
     return {"message": "Script deleted successfully"}, 200
+
+@app.route("/edit", methods=["POST"])
+def edit_script():
+    if "lua_file" not in request.files or not request.form.get("author") or not request.form.get("script_name"):
+        return {"error": "Missing file, author, or script name"}, 400
+
+    author = secure_filename(request.form["author"])
+    script_name = secure_filename(request.form["script_name"])
+    lua_file = request.files["lua_file"]
+
+    script_path = os.path.join(UPLOAD_FOLDER, f"{author}_{script_name}.lua")
+
+    if not os.path.exists(script_path):
+        return {"error": "Script not found to edit"}, 404
+
+    lua_file.save(script_path)
+
+    with sqlite3.connect(LOG_DB) as conn:
+        c = conn.cursor()
+        c.execute("UPDATE scripts SET file_path=? WHERE author=? AND script_name=?", (script_path, author, script_name))
+        conn.commit()
+
+    return {"message": "Script edited successfully", "raw_link": f"/script/{author}/{script_name}"}, 200
 
 if __name__ == "__main__":
     init_db()
