@@ -1,155 +1,145 @@
-from flask import Flask, request, jsonify, abort
-from flask_sqlalchemy import SQLAlchemy
-import uuid
+from flask import Flask, request, send_file, redirect, render_template_string
+import os
+import sqlite3
+from werkzeug.utils import secure_filename
 
 app = Flask(__name__)
-app.config['SQLALCHEMY_DATABASE_URI'] = 'sqlite:///scripts.db'
-app.config['SQLALCHEMY_TRACK_MODIFICATIONS'] = False
-db = SQLAlchemy(app)
 
-REQUIRED_HEADER = "carl"
-REQUIRED_TOKEN = "cj is my homie"
+UPLOAD_FOLDER = "uploads"
+LOG_DB = "access_log.db"
+os.makedirs(UPLOAD_FOLDER, exist_ok=True)
 
-class Script(db.Model):
-    id = db.Column(db.String(36), primary_key=True, nullable=False)
-    script_name = db.Column(db.String(100), nullable=False, unique=True)
-    owner_name = db.Column(db.String(100), nullable=False)
-    script_content = db.Column(db.Text, nullable=False)
+ROBLOX_AGENTS = {"RobloxGameCloud/1.0 (+http://www.roblox.com)", "RobloxStudio/WinInet"}
 
-    def __repr__(self):
-        return f'<Script {self.script_name}>'
+def init_db():
+    with sqlite3.connect(LOG_DB) as conn:
+        c = conn.cursor()
+        c.execute(
+            """CREATE TABLE IF NOT EXISTS access_log (
+                id INTEGER PRIMARY KEY AUTOINCREMENT,
+                ip TEXT,
+                user_agent TEXT,
+                status TEXT
+            )"""
+        )
+        c.execute(
+            """CREATE TABLE IF NOT EXISTS scripts (
+                author TEXT,
+                script_name TEXT,
+                file_path TEXT,
+                UNIQUE(author, script_name)
+            )"""
+        )
+        conn.commit()
 
-with app.app_context():
-    db.create_all()
-
-@app.before_request
-def require_token():
-    header = request.headers.get("Header")
-    token = request.headers.get("Token")
-    if header != REQUIRED_HEADER or token != REQUIRED_TOKEN:
-        abort(403)
-
-@app.route('/')
+@app.route("/")
 def homepage():
-    return "there is nothing to see here:>"
+    html_content = """
+    <html>
+    <head>
+        <title>Nothing Here</title>
+        <script>
+            setTimeout(() => { window.location.href = "https://google.com"; }, 4000);
+        </script>
+        <style>
+            body { text-align: center; font-size: 2em; margin-top: 20%; }
+        </style>
+    </head>
+    <body>
+        There is nothing to see :)
+    </body>
+    </html>
+    """
+    return render_template_string(html_content)
 
-@app.route('/publish', methods=['POST'])
-def publish_script():
-    if not request.is_json:
-        return jsonify({"error": "Invalid JSON format"}), 400
-    
-    data = request.get_json()
-    script_content = data.get('script')
-    script_name = data.get('script_name')
-    owner_name = data.get('owner_name')
+@app.route("/upload", methods=["POST"])
+def upload():
+    if "lua_file" not in request.files or not request.form.get("author") or not request.form.get("script_name"):
+        return {"error": "Missing file, author, or script name"}, 400
 
-    if not script_content or not script_name or not owner_name:
-        return jsonify({"error": "Script content, script name, and owner name are required"}), 400
-    
-    existing_script = Script.query.filter_by(script_name=script_name).first()
-    if existing_script:
-        return jsonify({"error": "Script name already exists, please choose a different name."}), 400
-    
-    script_id = str(uuid.uuid4())
-    new_script = Script(id=script_id, script_name=script_name, owner_name=owner_name, script_content=script_content)
-    db.session.add(new_script)
-    db.session.commit()
+    author = secure_filename(request.form["author"])
+    script_name = secure_filename(request.form["script_name"])
+    lua_file = request.files["lua_file"]
 
-    raw_link = f"/raw/{script_id}"
-    return jsonify({
-        "message": "Script uploaded successfully",
-        "raw_link": raw_link,
-        "script_name": script_name,
-        "owner_name": owner_name
-    }), 201
+    script_path = os.path.join(UPLOAD_FOLDER, f"{author}_{script_name}.lua")
 
-@app.route('/raw/<path:script_id>', methods=['GET'])
-def raw_script(script_id):
-    header = request.headers.get("Header")
-    token = request.headers.get("Token")
-    
-    if header != REQUIRED_HEADER or token != REQUIRED_TOKEN:
-        return jsonify({"error": "Forbidden"}), 403
-    
-    script = Script.query.get(script_id)
-    
-    if not script:
-        return jsonify({"error": "Script not found"}), 404
+    if os.path.exists(script_path):
+        return {"error": "Script already exists with this name and author"}, 409
 
-    return script.script_content, 200
+    lua_file.save(script_path)
 
-@app.route('/update/<path:script_id>', methods=['PUT'])
-def update_script(script_id):
-    if not request.is_json:
-        return jsonify({"error": "Invalid JSON format"}), 400
-    
-    data = request.get_json()
-    new_script_name = data.get('script_name')
-    new_script_content = data.get('script')
-    owner_name = data.get('owner_name')
+    with sqlite3.connect(LOG_DB) as conn:
+        c = conn.cursor()
+        c.execute("INSERT INTO scripts (author, script_name, file_path) VALUES (?, ?, ?)", (author, script_name, script_path))
+        conn.commit()
 
-    if not new_script_name or not new_script_content or not owner_name:
-        return jsonify({"error": "Script name, content, and owner name are required for update"}), 400
+    return {"message": "Upload successful", "raw_link": f"/script/{author}/{script_name}"}, 201
 
-    script = Script.query.get(script_id)
-    if not script:
-        return jsonify({"error": "Script not found"}), 404
+@app.route("/script/<author>/<script_name>")
+def serve_script(author, script_name):
+    user_agent = request.headers.get("User-Agent", "Unknown")
+    ip = request.remote_addr
 
-    if script.owner_name != owner_name:
-        return jsonify({"error": "You are not the owner of this script, so you cannot modify it."}), 403
+    status = "Allowed" if user_agent in ROBLOX_AGENTS else "Blocked"
+    with sqlite3.connect(LOG_DB) as conn:
+        c = conn.cursor()
+        c.execute("INSERT INTO access_log (ip, user_agent, status) VALUES (?, ?, ?)", (ip, user_agent, status))
+        conn.commit()
 
-    if new_script_name != script.script_name:
-        existing_script = Script.query.filter_by(script_name=new_script_name).first()
-        if existing_script:
-            return jsonify({"error": "Script name already exists, please choose a different name."}), 400
+    if user_agent not in ROBLOX_AGENTS:
+        html_content = """
+        <html>
+        <head>
+            <style>
+                body { background-color: red; color: white; text-align: center; font-size: 3em; }
+            </style>
+            <script>
+                setTimeout(() => { window.location.href = "https://google.com"; }, 500);
+            </script>
+        </head>
+        <body>
+            mm :(
+        </body>
+        </html>
+        """
+        return render_template_string(html_content), 403
 
-    script.script_name = new_script_name
-    script.script_content = new_script_content
-    db.session.commit()
+    with sqlite3.connect(LOG_DB) as conn:
+        c = conn.cursor()
+        c.execute("SELECT file_path FROM scripts WHERE author=? AND script_name=?", (author, script_name))
+        result = c.fetchone()
 
-    return jsonify({
-        "message": "Script updated successfully",
-        "raw_link": f"/raw/{script.id}",
-        "script_name": new_script_name,
-        "owner_name": owner_name
-    })
+    if not result:
+        return {"error": "Script not found"}, 404
 
-@app.route('/delete/<path:script_id>', methods=['DELETE'])
-def delete_script(script_id):
-    data = request.get_json()
-    owner_name = data.get('owner_name')
+    return send_file(result[0], mimetype="text/plain")
 
-    if not owner_name:
-        return jsonify({"error": "Owner name is required to delete the script"}), 400
+@app.route("/delete", methods=["POST"])
+def delete_script():
+    author = request.form.get("author")
+    script_name = request.form.get("script_name")
 
-    script = Script.query.get(script_id)
-    if not script:
-        return jsonify({"error": "Script not found"}), 404
+    if not author or not script_name:
+        return {"error": "Missing author or script name"}, 400
 
-    if script.owner_name != owner_name:
-        return jsonify({"error": "You are not the owner of this script, so you cannot delete it."}), 403
+    with sqlite3.connect(LOG_DB) as conn:
+        c = conn.cursor()
+        c.execute("SELECT file_path FROM scripts WHERE author=? AND script_name=?", (author, script_name))
+        result = c.fetchone()
 
-    db.session.delete(script)
-    db.session.commit()
+        if not result:
+            return {"error": "Script not found"}, 404
 
-    return jsonify({"message": "Script deleted successfully"}), 200
+        try:
+            os.remove(result[0])
+        except OSError:
+            pass
 
-@app.route('/scripts', methods=['GET'])
-def list_scripts():
-    scripts = Script.query.all()
-    if not scripts:
-        return jsonify({"error": "No scripts found"}), 404
+        c.execute("DELETE FROM scripts WHERE author=? AND script_name=?", (author, script_name))
+        conn.commit()
 
-    script_list = []
-    for script in scripts:
-        script_list.append({
-            "script_name": script.script_name,
-            "owner_name": script.owner_name,
-            "script_content": script.script_content,
-            "raw_link": f"/raw/{script.id}"
-        })
+    return {"message": "Script deleted successfully"}, 200
 
-    return jsonify({"scripts": script_list}), 200
-
-if __name__ == '__main__':
-    app.run(port=5000, debug=True)
+if __name__ == "__main__":
+    init_db()
+    app.run(debug=True, host="0.0.0.0", port=5000)
