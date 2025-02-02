@@ -20,7 +20,7 @@ ROBLOX_AGENTS = {"RobloxGameCloud/1.0 (+http://www.roblox.com)", "RobloxStudio/W
 
 os.makedirs(UPLOAD_FOLDER, exist_ok=True)
 
-SERVICE_ACCOUNT_FILE = "credentials.json"
+SERVICE_ACCOUNT_FILE = "pacific-arcadia-437212-e7-36b24a9d55d0.json"
 SCOPES = ["https://www.googleapis.com/auth/drive"]
 FOLDER_ID = "1e4xOJCwGCpCQa6c5CSOuRAq5yiQyYZpm"
 
