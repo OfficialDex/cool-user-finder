@@ -1,4 +1,4 @@
-from flask import Flask, request, send_file, redirect, render_template_string
+from flask import Flask, request, send_file, render_template_string
 import os
 import sqlite3
 from werkzeug.utils import secure_filename
