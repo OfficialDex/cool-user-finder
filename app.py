@@ -1,19 +1,36 @@
 from flask import Flask, request, send_file, render_template_string
 import os
-import firebase_admin
-from firebase_admin import credentials, firestore
+import sqlite3
 from werkzeug.utils import secure_filename
 
 app = Flask(__name__)
 
 UPLOAD_FOLDER = "uploads"
+LOG_DB = "access_log.db"
 os.makedirs(UPLOAD_FOLDER, exist_ok=True)
 
-cred = credentials.Certificate("database-for-scripts-firebase-adminsdk-fbsvc-65f631f23d.json")
-firebase_admin.initialize_app(cred)
-db = firestore.client()
-
 ROBLOX_AGENTS = {"RobloxGameCloud/1.0 (+http://www.roblox.com)", "RobloxStudio/WinInet"}
+
+def init_db():
+    with sqlite3.connect(LOG_DB) as conn:
+        c = conn.cursor()
+        c.execute(
+            """CREATE TABLE IF NOT EXISTS access_log (
+                id INTEGER PRIMARY KEY AUTOINCREMENT,
+                ip TEXT,
+                user_agent TEXT,
+                status TEXT
+            )"""
+        )
+        c.execute(
+            """CREATE TABLE IF NOT EXISTS scripts (
+                author TEXT,
+                script_name TEXT,
+                file_path TEXT,
+                UNIQUE(author, script_name)
+            )"""
+        )
+        conn.commit()
 
 @app.route("/")
 def homepage():
@@ -46,16 +63,15 @@ def upload():
 
     script_path = os.path.join(UPLOAD_FOLDER, f"{author}_{script_name}.lua")
 
-    if db.collection("scripts").document(f"{author}_{script_name}").get().exists:
+    if os.path.exists(script_path):
         return {"error": "Script already exists with this name and author"}, 409
 
     lua_file.save(script_path)
 
-    db.collection("scripts").document(f"{author}_{script_name}").set({
-        "author": author,
-        "script_name": script_name,
-        "file_path": script_path
-    })
+    with sqlite3.connect(LOG_DB) as conn:
+        c = conn.cursor()
+        c.execute("INSERT INTO scripts (author, script_name, file_path) VALUES (?, ?, ?)", (author, script_name, script_path))
+        conn.commit()
 
     return {"message": "Upload successful", "raw_link": f"/script/{author}/{script_name}"}, 201
 
@@ -69,7 +85,10 @@ def serve_script(author, script_name):
 
     print(log_message)
 
-    db.collection("access_log").add({"ip": ip, "user_agent": user_agent, "status": status})
+    with sqlite3.connect(LOG_DB) as conn:
+        c = conn.cursor()
+        c.execute("INSERT INTO access_log (ip, user_agent, status) VALUES (?, ?, ?)", (ip, user_agent, status))
+        conn.commit()
 
     if user_agent not in ROBLOX_AGENTS:
         html_content = """
@@ -89,14 +108,41 @@ def serve_script(author, script_name):
         """
         return render_template_string(html_content), 403
 
-    script_ref = db.collection("scripts").document(f"{author}_{script_name}").get()
+    with sqlite3.connect(LOG_DB) as conn:
+        c = conn.cursor()
+        c.execute("SELECT file_path FROM scripts WHERE author=? AND script_name=?", (author, script_name))
+        result = c.fetchone()
 
-    if not script_ref.exists:
+    if not result:
         return {"error": "Script not found"}, 404
 
-    script_path = script_ref.to_dict().get("file_path")
+    return send_file(result[0], mimetype="text/plain")
 
-    return send_file(script_path, mimetype="text/plain")
+@app.route("/delete", methods=["POST"])
+def delete_script():
+    author = request.form.get("author")
+    script_name = request.form.get("script_name")
+
+    if not author or not script_name:
+        return {"error": "Missing author or script name"}, 400
+
+    with sqlite3.connect(LOG_DB) as conn:
+        c = conn.cursor()
+        c.execute("SELECT file_path FROM scripts WHERE author=? AND script_name=?", (author, script_name))
+        result = c.fetchone()
+
+        if not result:
+            return {"error": "Script not found"}, 404
+
+        try:
+            os.remove(result[0])
+        except OSError:
+            pass
+
+        c.execute("DELETE FROM scripts WHERE author=? AND script_name=?", (author, script_name))
+        conn.commit()
+
+    return {"message": "Script deleted successfully"}, 200
 
 @app.route("/edit", methods=["POST"])
 def edit_script():
@@ -107,18 +153,20 @@ def edit_script():
     script_name = secure_filename(request.form["script_name"])
     lua_file = request.files["lua_file"]
 
-    script_ref = db.collection("scripts").document(f"{author}_{script_name}").get()
-
-    if not script_ref.exists:
-        return {"error": "Script not found to edit"}, 404
-
     script_path = os.path.join(UPLOAD_FOLDER, f"{author}_{script_name}.lua")
+
+    if not os.path.exists(script_path):
+        return {"error": "Script not found to edit"}, 404
 
     lua_file.save(script_path)
 
-    db.collection("scripts").document(f"{author}_{script_name}").update({"file_path": script_path})
+    with sqlite3.connect(LOG_DB) as conn:
+        c = conn.cursor()
+        c.execute("UPDATE scripts SET file_path=? WHERE author=? AND script_name=?", (script_path, author, script_name))
+        conn.commit()
 
     return {"message": "Script edited successfully", "raw_link": f"/script/{author}/{script_name}"}, 200
 
 if __name__ == "__main__":
+    init_db()
     app.run(debug=True, host="0.0.0.0", port=5000)
